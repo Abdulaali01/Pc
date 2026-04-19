@@ -509,21 +509,25 @@
 
       let html = `
         <html>
-        <head><meta charset="UTF-8"></head>
+        <head>
+          <meta charset="UTF-8">
+        </head>
         <body>
-          <table border="1" style="border-collapse:collapse;font-family:Tahoma">
+          <table border="1" style="border-collapse:collapse;font-family:Tahoma;table-layout:fixed;width:100%;">
             <tr style="background:#d9ead3;font-weight:bold">
-              <th>LAT</th>
-              <th>LNG</th>
-              <th>DATE</th>
-              <th>NOTE</th>
-              <th>IMAGE</th>
+              <th style="width:60px">#</th>
+              <th style="width:140px">LAT</th>
+              <th style="width:140px">LNG</th>
+              <th style="width:180px">DATE</th>
+              <th style="width:240px">NOTE</th>
+              <th style="width:180px">IMAGE</th>
             </tr>
       `;
 
       rows.forEach(r=>{
         html += `
           <tr>
+            <td>${r.index}</td>
             <td>${escapeHtml(r.lat)}</td>
             <td>${escapeHtml(r.lng)}</td>
             <td>${escapeHtml(r.date)}</td>
@@ -541,13 +545,17 @@
 
       const blob = new Blob(['\ufeff' + html], {type:'application/vnd.ms-excel'});
       const url = URL.createObjectURL(blob);
+
       const a = document.createElement("a");
       a.href = url;
       a.download = "report.xls";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      setTimeout(function(){
+        if(document.body.contains(a)) document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
     }
 
     function clearAll(){
