@@ -180,7 +180,8 @@
   <div class="topbar">
     <button onclick="exportPDF()">🖨️ PDF</button>
     <button onclick="exportExcel()">📊 Excel</button>
-    <button onclick="clearAll()">🗑️ مسح الكل</button>
+    <button onclick="clearScreen()">🗑️ مسح الشاشة</button>
+    <button onclick="clearAllData()">❌ حذف كل البيانات نهائياً</button>
   </div>
 
   <div class="page">
@@ -189,11 +190,15 @@
 
   <script>
     const STORAGE_KEY = "hidden_report_data_v1";
-    let dataStore = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    // dataStore يعرض فقط حالة الشاشة الحالية
+    let dataStore = {};
     const grid = document.getElementById("grid");
 
-    function saveStorage(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataStore));
+    function saveToStorage(){
+      // دمج البيانات الجديدة مع المخزنة
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const merged = {...stored, ...dataStore};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }
 
     function getBoxStateText(i){
@@ -277,7 +282,7 @@
         dataStore[i] = { lat:"", lng:"", date:"", img:"", note:"" };
       }
       dataStore[i].note = document.getElementById("note"+i).value || "";
-      saveStorage();
+      saveToStorage();
       closeEditor(i);
       refreshStatuses();
     }
@@ -295,7 +300,6 @@
           const img = new Image();
           img.onload = function(){
             const canvas = document.createElement("canvas");
-            // تصغير الصورة لتناسب العرض
             const maxWidth = 800;
             let width = img.naturalWidth || img.width;
             let height = img.naturalHeight || img.height;
@@ -311,17 +315,14 @@
             const ctx = canvas.getContext("2d");
             ctx.drawImage(img, 0, 0, width, height);
 
-            // شريط معلومات أسفل الصورة - ارتفاع مناسب
             const barHeight = Math.min(80, Math.round(height * 0.12));
             ctx.fillStyle = "rgba(0,0,0,0.85)";
             ctx.fillRect(0, height - barHeight, width, barHeight);
 
-            // خطوط مناسبة للحجم
             const fontSize = Math.max(16, Math.round(width * 0.025));
             ctx.fillStyle = "#fff";
             ctx.font = "bold " + fontSize + "px Arial";
 
-            // مسافة بين السطور
             const lineHeight = fontSize + 8;
             const startY = height - barHeight + lineHeight;
 
@@ -332,7 +333,6 @@
 
             const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
-            // ===== استبدال البيانات القديمة =====
             dataStore[i] = {
               lat: lat,
               lng: lng,
@@ -341,7 +341,7 @@
               note: dataStore[i]?.note || ""
             };
 
-            saveStorage();
+            saveToStorage();
             refreshStatuses();
           };
           img.src = e.target.result;
@@ -408,25 +408,22 @@
       return img;
     }
 
-    function getSavedRows(){
+    async function exportPDF(){
+      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
       const rows = [];
       for(let i=1;i<=12;i++){
-        if(dataStore[i] && dataStore[i].img){
+        if(allData[i] && allData[i].img){
           rows.push({
             index:i,
-            lat:dataStore[i].lat || "",
-            lng:dataStore[i].lng || "",
-            date:dataStore[i].date || "",
-            note:dataStore[i].note || "",
-            img:dataStore[i].img || ""
+            lat:allData[i].lat || "",
+            lng:allData[i].lng || "",
+            date:allData[i].date || "",
+            note:allData[i].note || "",
+            img:allData[i].img || ""
           });
         }
       }
-      return rows;
-    }
 
-    async function exportPDF(){
-      const rows = getSavedRows();
       if(!rows.length){
         alert("لا توجد بيانات محفوظة");
         return;
@@ -482,6 +479,7 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
+    // ===== EXCEL: يجيب كل البيانات من localStorage =====
     function exportExcel(){
       const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 
@@ -523,12 +521,20 @@
       XLSX.writeFile(wb, `تقرير_الصور_${dd}-${mm}-${yyyy}.xlsx`);
     }
 
-    function clearAll(){
-      if(!confirm("هل تريد مسح جميع البيانات المحفوظة؟")) return;
-      dataStore = {};
-      saveStorage();
+    // ===== مسح الشاشة فقط - البيانات تبقى في localStorage =====
+    function clearScreen(){
+      if(!confirm("مسح الشاشة فقط؟ البيانات تبقى محفوظة للتصدير")) return;
+      dataStore = {};  // تصفية الشاشة فقط
       refreshStatuses();
-      alert("تم مسح جميع البيانات");
+    }
+
+    // ===== حذف كل البيانات نهائياً من الجهاز =====
+    function clearAllData(){
+      if(!confirm("حذف كل البيانات نهائياً؟ لا يمكن الاسترجاع")) return;
+      dataStore = {};
+      localStorage.removeItem(STORAGE_KEY);
+      refreshStatuses();
+      alert("تم حذف جميع البيانات نهائياً");
     }
 
     document.addEventListener("click", function(){
