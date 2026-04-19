@@ -7,8 +7,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+<!-- خط عربي -->
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
 <style>
-body{margin:0;background:#eee;font-family:Tahoma}
+body{margin:0;background:#eee;font-family:'Cairo',Tahoma}
 .topbar{background:#111;color:#fff;padding:8px;display:flex;gap:10px}
 .topbar button{padding:6px 12px;cursor:pointer}
 
@@ -24,7 +27,7 @@ body{margin:0;background:#eee;font-family:Tahoma}
 .edit{position:absolute;bottom:2mm;right:2mm;background:#16a34a;color:#fff;padding:2mm 4mm;font-size:12px;cursor:pointer}
 
 .note-editor{position:absolute;inset:0;background:#fff;display:none;flex-direction:column;padding:4mm}
-.note-editor textarea{flex:1;resize:none;font-size:14px}
+.note-editor textarea{flex:1;resize:none;font-size:14px;font-family:'Cairo'}
 .note-editor button{margin-top:4mm}
 
 .picker{position:absolute;bottom:14mm;left:2mm;background:#fff;border:1px solid #000;display:none}
@@ -85,7 +88,7 @@ if(box.classList.contains("selected"))selected.push(i);
 else selected=selected.filter(x=>x!==i);
 }
 
-/* تحميل الصورة + الإحداثيات */
+/* صورة + إحداثيات */
 function loadImg(i,input){
 const file=input.files[0];
 if(!file)return;
@@ -130,68 +133,35 @@ reader.readAsDataURL(file);
 });
 }
 
-function openPicker(e,i){e.stopPropagation();document.getElementById("picker"+i).style.display="block";}
-function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();document.getElementById("picker"+i).style.display="none";}
-function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i).style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
-function saveNote(i){notes[i]=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
-
-/* PDF مع تحويل العربي لصورة */
+/* PDF */
 async function printPDF(){
 if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
 
-document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="none");
 const {jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
 
 const now=new Date();
-const dd=String(now.getDate()).padStart(2,"0");
-const mm=String(now.getMonth()+1).padStart(2,"0");
-const yyyy=now.getFullYear();
+const title=`تقرير الصور ليوم: ${now.toLocaleDateString("ar-SA")}`;
 
-/* عنوان كصورة */
-const titleDiv=document.createElement("div");
-titleDiv.style.width="180mm";
-titleDiv.style.textAlign="center";
-titleDiv.style.fontSize="20px";
-titleDiv.style.fontWeight="bold";
-titleDiv.innerText=`تقرير الصور ليوم: ${dd}/${mm}/${yyyy}`;
-document.body.appendChild(titleDiv);
+pdf.setFontSize(16);
+pdf.text(title,105,15,{align:"center"});
 
-const titleCanvas=await html2canvas(titleDiv,{scale:2});
-const titleImg=titleCanvas.toDataURL("image/jpeg");
-document.body.removeChild(titleDiv);
-
-function drawTitle(){pdf.addImage(titleImg,"JPEG",15,10,180,20);}
-drawTitle();
-
-let y=35;
+let y=25;
 
 for(let i of selected){
-if(y>260){pdf.addPage();drawTitle();y=35;}
+if(y>250){pdf.addPage();pdf.text(title,105,15,{align:"center"});y=25;}
 
 const box=document.getElementById("box"+i);
 const imgCanvas=await html2canvas(box,{scale:2});
 pdf.addImage(imgCanvas.toDataURL("image/jpeg",0.95),"JPEG",10,y,80,60);
 
-/* الملاحظات كصورة */
-const noteDiv=document.createElement("div");
-noteDiv.style.width="100mm";
-noteDiv.style.height="60mm";
-noteDiv.style.padding="10px";
-noteDiv.style.fontSize="16px";
-noteDiv.innerText=notes[i]||"";
-document.body.appendChild(noteDiv);
-
-const noteCanvas=await html2canvas(noteDiv,{scale:2});
-pdf.addImage(noteCanvas.toDataURL("image/jpeg"),"JPEG",95,y,100,60);
-document.body.removeChild(noteDiv);
+pdf.rect(95,y,100,60);
+pdf.text(notes[i]||"",100,y+10,{maxWidth:90});
 
 y+=70;
 }
 
-pdf.save(`تقرير_الصور_${dd}-${mm}-${yyyy}.pdf`);
-document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="");
-selectMode=false;
+pdf.save("report.pdf");
 }
 </script>
 
