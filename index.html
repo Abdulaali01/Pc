@@ -214,8 +214,7 @@
   <script>
     const STORAGE_KEY = "hidden_report_history_v3";
 
-    // كل مربع يخزن مصفوفة من السجلات
-    let screenData = {};  // البيانات المعروضة حالياً
+    let screenData = {};
     const grid = document.getElementById("grid");
 
     function getAllHistory(){
@@ -232,7 +231,6 @@
       const history = getAllHistory();
       document.getElementById("counter").textContent = "السجلات: " + history.length;
 
-      // تحديث شارات التاريخ
       for(let i=1; i<=12; i++){
         const badge = document.getElementById("badge"+i);
         if(badge){
@@ -333,7 +331,6 @@
       }
       screenData[i].note = noteText;
 
-      // حفظ في التاريخ
       if(screenData[i].img){
         const record = {
           id: Date.now(),
@@ -399,7 +396,6 @@
 
             const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
-            // حفظ في الشاشة
             screenData[i] = {
               lat: lat,
               lng: lng,
@@ -408,7 +404,6 @@
               note: ""
             };
 
-            // حفظ في التاريخ كسجل جديد
             const record = {
               id: Date.now(),
               boxId: i,
@@ -546,6 +541,7 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
+    // ===== EXCEL مع صور داخل الخلايا =====
     function exportExcel(){
       const history = getAllHistory();
 
@@ -554,29 +550,71 @@
         return;
       }
 
-      const rows = history.map((item, idx) => ({
-        "مسلسل": idx + 1,
-        "رقم المربع": item.boxId,
-        "LAT": item.lat || "",
-        "LNG": item.lng || "",
-        "التاريخ": item.date || "",
-        "الملاحظات": item.note || "",
-        "وقت الحفظ": item.savedAt || ""
-      }));
+      // إنشاء مصفوفة بيانات
+      const data = [
+        ["م", "رقم المربع", "LAT", "LNG", "التاريخ", "الملاحظات", "وقت الحفظ"]
+      ];
 
-      const ws = XLSX.utils.json_to_sheet(rows);
+      history.forEach((item, idx) => {
+        data.push([
+          idx + 1,
+          item.boxId,
+          item.lat || "",
+          item.lng || "",
+          item.date || "",
+          item.note || "",
+          item.savedAt || ""
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      // إضافة الصور كصور مدمجة في الورقة
+      const images = [];
+      history.forEach((item, idx) => {
+        if(item.img){
+          // استخراج Base64 بدون prefix
+          const base64 = item.img.replace(/^data:image\/\w+;base64,/, "");
+          const imageId = XLSX.utils.sheet_add_aoa(ws, [[""]], {origin: "H" + (idx + 2)});
+
+          images.push({
+            name: "image" + idx + ".jpg",
+            data: base64,
+            opts: {base64: true},
+            position: {
+              type: "twoCellAnchor",
+              from: {col: 7, row: idx + 1},  // عمود H
+              to: {col: 8, row: idx + 2}
+            }
+          });
+        }
+      });
+
       ws['!cols'] = [
-        {wch: 10},
+        {wch: 6},
         {wch: 12},
         {wch: 15},
         {wch: 15},
         {wch: 25},
-        {wch: 50},
-        {wch: 25}
+        {wch: 40},
+        {wch: 25},
+        {wch: 20}  // عمود الصور
       ];
+
+      // ارتفاع الصفوف لاستيعاب الصور
+      ws['!rows'] = [];
+      ws['!rows'][0] = {hpt: 20};  // صف العناوين
+      for(let i=0; i<history.length; i++){
+        ws['!rows'][i+1] = {hpt: 80};  // ارتفاع 80 نقطة لكل صف
+      }
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "تقرير الصور");
+
+      // إضافة الصور للملف
+      if(images.length > 0){
+        wb.Sheets["تقرير الصور"]["!images"] = images;
+      }
 
       const now = new Date();
       const dd = String(now.getDate()).padStart(2,"0");
@@ -586,14 +624,12 @@
       XLSX.writeFile(wb, `تقرير_الصور_${dd}-${mm}-${yyyy}.xlsx`);
     }
 
-    // مسح الشاشة فقط
     function clearScreen(){
       if(!confirm("مسح الشاشة فقط؟ البيانات تبقى محفوظة")) return;
       screenData = {};
       refreshStatuses();
     }
 
-    // حذف كل البيانات نهائياً
     function clearAllData(){
       if(!confirm("حذف كل البيانات نهائياً؟ لا يمكن الاسترجاع")) return;
       screenData = {};
