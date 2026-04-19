@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>تقرير صور A4</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{margin:0;background:#eee;font-family:Tahoma}
+.topbar{background:#111;color:#fff;padding:8px;display:flex;gap:10px}
+.topbar button{padding:6px 12px;cursor:pointer}
+
+.page{width:210mm;height:297mm;border:1px solid #000;padding:10mm;background:#fff;margin:10mm auto}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}
+
+.img-box{border:1px solid #000;height:60mm;position:relative}
+.img-box img{width:100%;height:100%;object-fit:contain}
+.img-box.selected{outline:4px solid #22c55e}
+
+.num{position:absolute;top:2mm;right:2mm;background:#000;color:#fff;padding:2mm 3mm;display:none}
+.add{position:absolute;bottom:2mm;left:2mm;width:10mm;height:10mm;border-radius:50%;background:#2563eb;color:#fff;text-align:center;line-height:10mm;cursor:pointer}
+.edit{position:absolute;bottom:2mm;right:2mm;background:#16a34a;color:#fff;padding:2mm 4mm;font-size:12px;cursor:pointer}
+
+.note-editor{position:absolute;inset:0;background:#fff;display:none;flex-direction:column;padding:4mm}
+.note-editor textarea{flex:1;resize:none;font-size:14px}
+.note-editor button{margin-top:4mm}
+
+.picker{position:absolute;bottom:14mm;left:2mm;background:#fff;border:1px solid #000;display:none}
+.picker button{display:block;width:100%;border:none;padding:5px}
+input{display:none}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+<button onclick="enableSelect()">🔗 ربط التقرير</button>
+<button onclick="printPDF()">🖨️ طباعة التقرير</button>
+</div>
+
+<div class="page"><div class="grid" id="grid"></div></div>
+
+<script>
+const grid=document.getElementById("grid");
+let selectMode=false;
+let selected=[];
+const notes={};
+
+for(let i=1;i<=12;i++){
+grid.innerHTML+=`
+<div class="img-box" id="box${i}" onclick="toggle(${i})">
+<div class="num">${i}</div>
+<div class="add" onclick="openPicker(event,${i})">+</div>
+<div class="edit" onclick="openEditor(event,${i})">✏️ تحرير</div>
+
+<div class="note-editor" id="editor${i}">
+<textarea id="note${i}"></textarea>
+<button onclick="saveNote(${i})">💾 حفظ</button>
+</div>
+
+<div class="picker" id="picker${i}">
+<button onclick="openFile(${i},0)">📷 كاميرا</button>
+<button onclick="openFile(${i},1)">🖼️ استديو</button>
+</div>
+
+<input type="file" accept="image/*" capture onchange="loadImg(${i},this)">
+<input type="file" accept="image/*" onchange="loadImg(${i},this)">
+</div>`;
+}
+
+function enableSelect(){
+selectMode=true;
+selected=[];
+document.querySelectorAll(".img-box").forEach(b=>b.classList.remove("selected"));
+alert("اختر الصور ثم اطبع التقرير");
+}
+
+function toggle(i){
+if(!selectMode)return;
+const box=document.getElementById("box"+i);
+box.classList.toggle("selected");
+if(box.classList.contains("selected"))selected.push(i);
+else selected=selected.filter(x=>x!==i);
+}
+
+/* تحميل الصورة + الإحداثيات */
+function loadImg(i,input){
+const file=input.files[0];
+if(!file)return;
+
+navigator.geolocation.getCurrentPosition(pos=>{
+const lat=pos.coords.latitude.toFixed(6);
+const lng=pos.coords.longitude.toFixed(6);
+const stamp=new Date().toLocaleString("ar-SA");
+
+const reader=new FileReader();
+reader.onload=e=>{
+const img=new Image();
+img.onload=()=>{
+const c=document.createElement("canvas");
+c.width=img.width;
+c.height=img.height;
+const ctx=c.getContext("2d");
+
+ctx.drawImage(img,0,0);
+
+ctx.fillStyle="rgba(0,0,0,.75)";
+ctx.fillRect(0,c.height-220,c.width,220);
+
+ctx.fillStyle="#fff";
+ctx.font="bold 70px Tahoma";
+ctx.fillText(`LAT: ${lat}`,40,c.height-140);
+ctx.fillText(`LNG: ${lng}`,40,c.height-70);
+ctx.font="bold 56px Tahoma";
+ctx.fillText(stamp,40,c.height-20);
+
+const box=document.getElementById("box"+i);
+box.querySelectorAll("img").forEach(x=>x.remove());
+const final=document.createElement("img");
+final.src=c.toDataURL("image/jpeg",0.98);
+box.appendChild(final);
+box.querySelector(".num").style.display="block";
+}
+img.src=e.target.result;
+}
+reader.readAsDataURL(file);
+});
+}
+
+function openPicker(e,i){e.stopPropagation();document.getElementById("picker"+i).style.display="block";}
+function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();document.getElementById("picker"+i).style.display="none";}
+function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i);editor.style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
+function saveNote(i){notes[i]=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
+
+/* PDF مع العنوان المتكرر + مربعات الملاحظات */
+async function printPDF(){
+if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
+
+document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="none");
+const {jsPDF}=window.jspdf;
+const pdf=new jsPDF("p","mm","a4");
+
+const now=new Date();
+const dd=String(now.getDate()).padStart(2,"0");
+const mm=String(now.getMonth()+1).padStart(2,"0");
+const yyyy=now.getFullYear();
+
+const title=`تقرير الصور ليوم: ${dd}/${mm}/${yyyy}`;
+
+function drawTitle(){pdf.setFontSize(16);pdf.text(title,105,15,{align:"center"});}
+drawTitle();
+
+let y=25;
+
+for(let i of selected){
+if(y>250){pdf.addPage();drawTitle();y=25;}
+
+const box=document.getElementById("box"+i);
+const imgCanvas=await html2canvas(box,{scale:2});
+pdf.addImage(imgCanvas.toDataURL("image/jpeg",0.95),"JPEG",10,y,80,60);
+
+pdf.rect(95,y,100,60);
+pdf.setFontSize(12);
+pdf.text((notes[i]||""),100,y+10,{maxWidth:90});
+
+y+=70;
+}
+
+pdf.save(`تقرير_الصور_${dd}-${mm}-${yyyy}.pdf`);
+document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="");
+selectMode=false;
+}
+</script>
+
+</body>
+</html>
