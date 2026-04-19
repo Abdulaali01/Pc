@@ -7,7 +7,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- SheetJS for proper Excel export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
@@ -210,17 +209,13 @@
         html += `
           <div class="box" id="box${i}">
             <div class="num">${i}</div>
-
             <div class="status" id="status${i}">${getBoxStateText(i)}</div>
-
             <div class="add" onclick="openPicker(event,${i})">+</div>
             <div class="edit" onclick="openEditor(event,${i})">✏️</div>
-
             <div class="picker" id="picker${i}">
               <button onclick="openFile(${i},0)">📷 كاميرا</button>
               <button onclick="openFile(${i},1)">🖼️ استديو</button>
             </div>
-
             <div class="note-editor" id="editor${i}">
               <textarea id="note${i}" placeholder="اكتب الملاحظة هنا..."></textarea>
               <div class="note-actions">
@@ -228,7 +223,6 @@
                 <button onclick="closeEditor(${i})">إغلاق</button>
               </div>
             </div>
-
             <input id="cam${i}" type="file" accept="image/*" capture="environment" onchange="loadImg(${i},this)">
             <input id="gal${i}" type="file" accept="image/*" onchange="loadImg(${i},this)">
           </div>
@@ -280,13 +274,7 @@
 
     function saveNote(i){
       if(!dataStore[i]){
-        dataStore[i] = {
-          lat:"",
-          lng:"",
-          date:"",
-          img:"",
-          note:""
-        };
+        dataStore[i] = { lat:"", lng:"", date:"", img:"", note:"" };
       }
       dataStore[i].note = document.getElementById("note"+i).value || "";
       saveStorage();
@@ -299,42 +287,52 @@
       if(!file) return;
 
       const now = new Date();
-      const dateText = now.toLocaleString("en-US");
+      const dateText = now.toLocaleString("ar-SA");
 
       function finishWithCoords(lat,lng){
         const reader = new FileReader();
-
         reader.onload = function(e){
           const img = new Image();
-
           img.onload = function(){
             const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth || img.width;
-            canvas.height = img.naturalHeight || img.height;
+            // تصغير الصورة لتناسب العرض
+            const maxWidth = 800;
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
+
+            if(width > maxWidth){
+              height = (maxWidth / width) * height;
+              width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
 
             const ctx = canvas.getContext("2d");
-            ctx.drawImage(img,0,0,canvas.width,canvas.height);
+            ctx.drawImage(img, 0, 0, width, height);
 
-            const barHeight = Math.max(170, Math.round(canvas.height * 0.17));
-            ctx.fillStyle = "rgba(0,0,0,.82)";
-            ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
+            // شريط معلومات أسفل الصورة - ارتفاع مناسب
+            const barHeight = Math.min(80, Math.round(height * 0.12));
+            ctx.fillStyle = "rgba(0,0,0,0.85)";
+            ctx.fillRect(0, height - barHeight, width, barHeight);
 
-            const latFont = Math.max(38, Math.round(canvas.width * 0.030));
-            const lngFont = Math.max(38, Math.round(canvas.width * 0.030));
-            const dateFont = Math.max(28, Math.round(canvas.width * 0.022));
-
+            // خطوط مناسبة للحجم
+            const fontSize = Math.max(16, Math.round(width * 0.025));
             ctx.fillStyle = "#fff";
-            ctx.font = "bold " + latFont + "px Arial";
-            ctx.fillText("LAT: " + lat, 20, canvas.height - barHeight + 48);
+            ctx.font = "bold " + fontSize + "px Arial";
 
-            ctx.font = "bold " + lngFont + "px Arial";
-            ctx.fillText("LNG: " + lng, 20, canvas.height - barHeight + 98);
+            // مسافة بين السطور
+            const lineHeight = fontSize + 8;
+            const startY = height - barHeight + lineHeight;
 
-            ctx.font = "bold " + dateFont + "px Arial";
-            ctx.fillText(dateText, 20, canvas.height - 25);
+            ctx.fillText("LAT: " + lat, 15, startY);
+            ctx.fillText("LNG: " + lng, 15, startY + lineHeight);
+            ctx.font = fontSize + "px Arial";
+            ctx.fillText(dateText, 15, startY + (lineHeight * 2));
 
-            const base64 = canvas.toDataURL("image/jpeg", 0.95);
+            const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
+            // ===== استبدال البيانات القديمة =====
             dataStore[i] = {
               lat: lat,
               lng: lng,
@@ -346,10 +344,8 @@
             saveStorage();
             refreshStatuses();
           };
-
           img.src = e.target.result;
         };
-
         reader.readAsDataURL(file);
       }
 
@@ -361,19 +357,12 @@
               pos.coords.longitude.toFixed(6)
             );
           },
-          function(){
-            finishWithCoords("N/A","N/A");
-          },
-          {
-            enableHighAccuracy:true,
-            timeout:10000,
-            maximumAge:0
-          }
+          function(){ finishWithCoords("N/A","N/A"); },
+          { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
         );
       }else{
         finishWithCoords("N/A","N/A");
       }
-
       input.value = "";
     }
 
@@ -493,9 +482,7 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
-    // ===== EXPORT ALL STORED DATA FROM LOCALSTORAGE =====
     function exportExcel(){
-      // استرجاع مباشر من localStorage - يجيب كل البيانات المخزنة
       const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 
       const rows = [];
@@ -517,13 +504,12 @@
       }
 
       const ws = XLSX.utils.json_to_sheet(rows);
-
       ws['!cols'] = [
-        {wch: 8},   // رقم
-        {wch: 15},  // LAT
-        {wch: 15},  // LNG
-        {wch: 25},  // التاريخ
-        {wch: 50}   // الملاحظات
+        {wch: 8},
+        {wch: 15},
+        {wch: 15},
+        {wch: 25},
+        {wch: 50}
       ];
 
       const wb = XLSX.utils.book_new();
