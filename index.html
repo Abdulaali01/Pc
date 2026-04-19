@@ -106,14 +106,15 @@ const ctx=c.getContext("2d");
 
 ctx.drawImage(img,0,0);
 
-ctx.fillStyle="rgba(0,0,0,.75)";
-ctx.fillRect(0,c.height-220,c.width,220);
+ctx.fillStyle="rgba(0,0,0,.85)";
+ctx.fillRect(0,c.height-300,c.width,300);
 
 ctx.fillStyle="#fff";
-ctx.font="bold 70px Tahoma";
-ctx.fillText(`LAT: ${lat}`,40,c.height-140);
-ctx.fillText(`LNG: ${lng}`,40,c.height-70);
-ctx.font="bold 56px Tahoma";
+ctx.font="bold 90px Arial";
+ctx.fillText(`LAT: ${lat}`,40,c.height-180);
+ctx.fillText(`LNG: ${lng}`,40,c.height-90);
+
+ctx.font="bold 70px Arial";
 ctx.fillText(stamp,40,c.height-20);
 
 const box=document.getElementById("box"+i);
@@ -134,7 +135,7 @@ function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();d
 function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i);editor.style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
 function saveNote(i){notes[i]=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
 
-/* PDF مع العنوان المتكرر + مربعات الملاحظات */
+/* PDF */
 async function printPDF(){
 if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
 
@@ -149,7 +150,12 @@ const yyyy=now.getFullYear();
 
 const title=`تقرير الصور ليوم: ${dd}/${mm}/${yyyy}`;
 
-function drawTitle(){pdf.setFontSize(16);pdf.text(title,105,15,{align:"center"});}
+function drawTitle(){
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(16);
+pdf.text(title.split("").reverse().join(""),105,15,{align:"center"});
+}
+
 drawTitle();
 
 let y=25;
@@ -162,8 +168,10 @@ const imgCanvas=await html2canvas(box,{scale:2});
 pdf.addImage(imgCanvas.toDataURL("image/jpeg",0.95),"JPEG",10,y,80,60);
 
 pdf.rect(95,y,100,60);
+
+const txt=(notes[i]||"").split("").reverse().join("");
 pdf.setFontSize(12);
-pdf.text((notes[i]||""),100,y+10,{maxWidth:90});
+pdf.text(txt,100,y+10,{maxWidth:90});
 
 y+=70;
 }
