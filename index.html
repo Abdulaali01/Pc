@@ -212,9 +212,9 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "hidden_report_box_history_v6";
+    const STORAGE_KEY = "hidden_report_box_history_v7";
 
-    // كل مربع يخزن مصفوفة من السجلات
+    // كل مربع يخزن مصفوفة من السجلات (صورة + ملاحظة مع بعض)
     let screenData = {};  // آخر سجل لكل مربع (للعرض)
     const grid = document.getElementById("grid");
 
@@ -351,19 +351,14 @@
       }
       screenData[i].note = noteText;
 
-      // حفظ في التاريخ كسجل جديد
+      // تحديث الملاحظة في آخر سجل محفوظ لهذا المربع (لو فيه صورة)
       if(screenData[i].img){
-        const record = {
-          id: Date.now(),
-          boxId: i,
-          lat: screenData[i].lat,
-          lng: screenData[i].lng,
-          date: screenData[i].date,
-          img: screenData[i].img,
-          note: noteText,
-          savedAt: new Date().toLocaleString("ar-SA")
-        };
-        saveBoxRecord(i, record);
+        const stored = getStoredData();
+        if(stored[i] && stored[i].length > 0){
+          // تحديث الملاحظة في آخر سجل فقط
+          stored[i][stored[i].length - 1].note = noteText;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        }
       }
 
       closeEditor(i);
@@ -427,7 +422,7 @@
               note: screenData[i]?.note || ""
             };
 
-            // حفظ في التاريخ كسجل جديد
+            // حفظ سجل جديد (صورة + ملاحظة مع بعض)
             const record = {
               id: Date.now(),
               boxId: i,
@@ -565,7 +560,7 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
-    // ===== EXCEL: كل سجل = سطر منفصل =====
+    // ===== EXCEL: كل سجل = صورة + ملاحظة مع بعض =====
     function exportExcel(){
       const allRecords = getAllRecords();
 
