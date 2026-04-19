@@ -23,6 +23,7 @@
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      align-items:center;
     }
 
     .topbar button{
@@ -31,6 +32,14 @@
       border-radius:6px;
       cursor:pointer;
       font-family:inherit;
+    }
+
+    .counter{
+      background:#2563eb;
+      color:#fff;
+      padding:6px 12px;
+      border-radius:6px;
+      font-weight:bold;
     }
 
     .page{
@@ -66,6 +75,19 @@
       padding:2mm 3mm;
       z-index:5;
       font-size:14px;
+    }
+
+    .history-badge{
+      position:absolute;
+      top:2mm;
+      left:2mm;
+      background:#dc2626;
+      color:#fff;
+      padding:1mm 3mm;
+      z-index:5;
+      font-size:12px;
+      border-radius:4px;
+      display:none;
     }
 
     .add{
@@ -178,10 +200,11 @@
 <body>
 
   <div class="topbar">
+    <div class="counter" id="counter">السجلات: 0</div>
     <button onclick="exportPDF()">🖨️ PDF</button>
     <button onclick="exportExcel()">📊 Excel</button>
     <button onclick="clearScreen()">🗑️ مسح الشاشة</button>
-    <button onclick="clearAllData()">❌ حذف كل البيانات نهائياً</button>
+    <button onclick="clearAllData()">❌ حذف كل البيانات</button>
   </div>
 
   <div class="page">
@@ -189,20 +212,43 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "hidden_report_data_v1";
-    // dataStore يعرض فقط حالة الشاشة الحالية
-    let dataStore = {};
+    const STORAGE_KEY = "hidden_report_history_v3";
+
+    // كل مربع يخزن مصفوفة من السجلات
+    let screenData = {};  // البيانات المعروضة حالياً
     const grid = document.getElementById("grid");
 
-    function saveToStorage(){
-      // دمج البيانات الجديدة مع المخزنة
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      const merged = {...stored, ...dataStore};
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    function getAllHistory(){
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    }
+
+    function saveHistory(record){
+      const history = getAllHistory();
+      history.push(record);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }
+
+    function updateCounter(){
+      const history = getAllHistory();
+      document.getElementById("counter").textContent = "السجلات: " + history.length;
+
+      // تحديث شارات التاريخ
+      for(let i=1; i<=12; i++){
+        const badge = document.getElementById("badge"+i);
+        if(badge){
+          const count = history.filter(h => h.boxId === i).length;
+          if(count > 0){
+            badge.style.display = "block";
+            badge.textContent = count + " سجل";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+      }
     }
 
     function getBoxStateText(i){
-      if(dataStore[i] && dataStore[i].img){
+      if(screenData[i] && screenData[i].img){
         return "تم حفظ صورة وبيانات هذه الخانة";
       }
       return "لا توجد صورة محفوظة";
@@ -214,6 +260,7 @@
         html += `
           <div class="box" id="box${i}">
             <div class="num">${i}</div>
+            <div class="history-badge" id="badge${i}"></div>
             <div class="status" id="status${i}">${getBoxStateText(i)}</div>
             <div class="add" onclick="openPicker(event,${i})">+</div>
             <div class="edit" onclick="openEditor(event,${i})">✏️</div>
@@ -237,6 +284,7 @@
     }
 
     buildBoxes();
+    updateCounter();
 
     function refreshStatuses(){
       for(let i=1;i<=12;i++){
@@ -270,7 +318,7 @@
       e.stopPropagation();
       hideAllPickers();
       document.getElementById("editor"+i).style.display = "flex";
-      document.getElementById("note"+i).value = (dataStore[i] && dataStore[i].note) ? dataStore[i].note : "";
+      document.getElementById("note"+i).value = (screenData[i] && screenData[i].note) ? screenData[i].note : "";
     }
 
     function closeEditor(i){
@@ -278,13 +326,31 @@
     }
 
     function saveNote(i){
-      if(!dataStore[i]){
-        dataStore[i] = { lat:"", lng:"", date:"", img:"", note:"" };
+      const noteText = document.getElementById("note"+i).value || "";
+
+      if(!screenData[i]){
+        screenData[i] = { lat:"", lng:"", date:"", img:"", note:"" };
       }
-      dataStore[i].note = document.getElementById("note"+i).value || "";
-      saveToStorage();
+      screenData[i].note = noteText;
+
+      // حفظ في التاريخ
+      if(screenData[i].img){
+        const record = {
+          id: Date.now(),
+          boxId: i,
+          lat: screenData[i].lat,
+          lng: screenData[i].lng,
+          date: screenData[i].date,
+          img: screenData[i].img,
+          note: noteText,
+          savedAt: new Date().toLocaleString("ar-SA")
+        };
+        saveHistory(record);
+      }
+
       closeEditor(i);
       refreshStatuses();
+      updateCounter();
     }
 
     function loadImg(i,input){
@@ -333,16 +399,30 @@
 
             const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
-            dataStore[i] = {
+            // حفظ في الشاشة
+            screenData[i] = {
               lat: lat,
               lng: lng,
               date: dateText,
               img: base64,
-              note: dataStore[i]?.note || ""
+              note: ""
             };
 
-            saveToStorage();
+            // حفظ في التاريخ كسجل جديد
+            const record = {
+              id: Date.now(),
+              boxId: i,
+              lat: lat,
+              lng: lng,
+              date: dateText,
+              img: base64,
+              note: "",
+              savedAt: new Date().toLocaleString("ar-SA")
+            };
+            saveHistory(record);
+
             refreshStatuses();
+            updateCounter();
           };
           img.src = e.target.result;
         };
@@ -409,22 +489,9 @@
     }
 
     async function exportPDF(){
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      const rows = [];
-      for(let i=1;i<=12;i++){
-        if(allData[i] && allData[i].img){
-          rows.push({
-            index:i,
-            lat:allData[i].lat || "",
-            lng:allData[i].lng || "",
-            date:allData[i].date || "",
-            note:allData[i].note || "",
-            img:allData[i].img || ""
-          });
-        }
-      }
+      const history = getAllHistory();
 
-      if(!rows.length){
+      if(!history.length){
         alert("لا توجد بيانات محفوظة");
         return;
       }
@@ -458,7 +525,7 @@
       const noteWidth = pageWidth - noteX - 20;
       let y = 35;
 
-      for(const row of rows){
+      for(const row of history){
         if(y + imgHeight > 280){
           pdf.addPage();
           drawTitle();
@@ -479,35 +546,33 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
-    // ===== EXCEL: يجيب كل البيانات من localStorage =====
     function exportExcel(){
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const history = getAllHistory();
 
-      const rows = [];
-      for(let i=1; i<=12; i++){
-        if(allData[i] && allData[i].img){
-          rows.push({
-            "رقم": i,
-            "LAT": allData[i].lat || "",
-            "LNG": allData[i].lng || "",
-            "التاريخ": allData[i].date || "",
-            "الملاحظات": allData[i].note || ""
-          });
-        }
-      }
-
-      if(!rows.length){
+      if(!history.length){
         alert("لا توجد بيانات محفوظة");
         return;
       }
 
+      const rows = history.map((item, idx) => ({
+        "مسلسل": idx + 1,
+        "رقم المربع": item.boxId,
+        "LAT": item.lat || "",
+        "LNG": item.lng || "",
+        "التاريخ": item.date || "",
+        "الملاحظات": item.note || "",
+        "وقت الحفظ": item.savedAt || ""
+      }));
+
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        {wch: 8},
+        {wch: 10},
+        {wch: 12},
         {wch: 15},
         {wch: 15},
         {wch: 25},
-        {wch: 50}
+        {wch: 50},
+        {wch: 25}
       ];
 
       const wb = XLSX.utils.book_new();
@@ -521,20 +586,21 @@
       XLSX.writeFile(wb, `تقرير_الصور_${dd}-${mm}-${yyyy}.xlsx`);
     }
 
-    // ===== مسح الشاشة فقط - البيانات تبقى في localStorage =====
+    // مسح الشاشة فقط
     function clearScreen(){
-      if(!confirm("مسح الشاشة فقط؟ البيانات تبقى محفوظة للتصدير")) return;
-      dataStore = {};  // تصفية الشاشة فقط
+      if(!confirm("مسح الشاشة فقط؟ البيانات تبقى محفوظة")) return;
+      screenData = {};
       refreshStatuses();
     }
 
-    // ===== حذف كل البيانات نهائياً من الجهاز =====
+    // حذف كل البيانات نهائياً
     function clearAllData(){
       if(!confirm("حذف كل البيانات نهائياً؟ لا يمكن الاسترجاع")) return;
-      dataStore = {};
+      screenData = {};
       localStorage.removeItem(STORAGE_KEY);
       refreshStatuses();
-      alert("تم حذف جميع البيانات نهائياً");
+      updateCounter();
+      alert("تم حذف جميع البيانات");
     }
 
     document.addEventListener("click", function(){
