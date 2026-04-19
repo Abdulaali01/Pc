@@ -1,576 +1,222 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تقرير صور مخفي</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقرير صور مخفي</title>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-  <style>
-    body{
-      margin:0;
-      background:#eee;
-      font-family:Tahoma, Arial, sans-serif;
-    }
+<style>
+body{margin:0;background:#eee;font-family:Tahoma,Arial}
+.topbar{background:#111;color:#fff;padding:10px;display:flex;gap:10px}
+.topbar button{padding:8px 14px;border:none;border-radius:6px;cursor:pointer}
 
-    .topbar{
-      background:#111;
-      color:#fff;
-      padding:10px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
+.page{width:210mm;min-height:297mm;background:#fff;margin:10mm auto;padding:10mm;border:1px solid #000}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}
 
-    .topbar button{
-      padding:8px 14px;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-      font-family:inherit;
-    }
+.box{height:60mm;border:1px solid #000;position:relative;background:#fafafa}
+.num{position:absolute;top:2mm;right:2mm;background:#000;color:#fff;padding:2mm 3mm}
 
-    .page{
-      width:210mm;
-      min-height:297mm;
-      background:#fff;
-      margin:10mm auto;
-      padding:10mm;
-      box-sizing:border-box;
-      border:1px solid #000;
-    }
+.add{position:absolute;bottom:2mm;left:2mm;width:10mm;height:10mm;border-radius:50%;background:#2563eb;color:#fff;text-align:center;line-height:10mm;cursor:pointer}
+.edit{position:absolute;bottom:2mm;right:2mm;background:#16a34a;color:#fff;padding:2mm 4mm;font-size:12px;cursor:pointer}
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:5mm;
-    }
+.status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666}
 
-    .box{
-      height:60mm;
-      border:1px solid #000;
-      position:relative;
-      background:#fafafa;
-      overflow:hidden;
-    }
+.picker{position:absolute;bottom:14mm;left:2mm;background:#fff;border:1px solid #000;display:none}
+.picker button{display:block;width:100%;border:none;padding:6px;cursor:pointer}
 
-    .num{
-      position:absolute;
-      top:2mm;
-      right:2mm;
-      background:#000;
-      color:#fff;
-      padding:2mm 3mm;
-      z-index:5;
-      font-size:14px;
-    }
-
-    .add{
-      position:absolute;
-      bottom:2mm;
-      left:2mm;
-      width:10mm;
-      height:10mm;
-      border-radius:50%;
-      background:#2563eb;
-      color:#fff;
-      text-align:center;
-      line-height:10mm;
-      cursor:pointer;
-      z-index:5;
-      user-select:none;
-      font-weight:bold;
-    }
-
-    .edit{
-      position:absolute;
-      bottom:2mm;
-      right:2mm;
-      background:#16a34a;
-      color:#fff;
-      padding:2mm 4mm;
-      font-size:12px;
-      cursor:pointer;
-      z-index:5;
-      user-select:none;
-      border-radius:4px;
-    }
-
-    .status{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      color:#666;
-      font-size:14px;
-      padding:10px;
-      box-sizing:border-box;
-    }
-
-    .picker{
-      position:absolute;
-      bottom:14mm;
-      left:2mm;
-      background:#fff;
-      border:1px solid #000;
-      display:none;
-      z-index:20;
-      min-width:90px;
-      box-shadow:0 2px 8px rgba(0,0,0,.15);
-    }
-
-    .picker button{
-      display:block;
-      width:100%;
-      border:none;
-      padding:8px 10px;
-      cursor:pointer;
-      background:#fff;
-      text-align:right;
-      font-family:inherit;
-    }
-
-    .picker button:hover{
-      background:#f3f4f6;
-    }
-
-    .note-editor{
-      position:absolute;
-      inset:0;
-      background:#fff;
-      display:none;
-      flex-direction:column;
-      padding:10px;
-      z-index:30;
-      box-sizing:border-box;
-    }
-
-    .note-editor textarea{
-      flex:1;
-      resize:none;
-      font-family:inherit;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .note-actions{
-      display:flex;
-      gap:8px;
-      margin-top:8px;
-    }
-
-    .note-actions button{
-      padding:8px 12px;
-      cursor:pointer;
-      font-family:inherit;
-    }
-
-    input[type="file"]{
-      display:none;
-    }
-  </style>
+.note-editor{position:absolute;inset:0;background:#fff;display:none;flex-direction:column;padding:10px}
+.note-editor textarea{flex:1}
+</style>
 </head>
+
 <body>
 
-  <div class="topbar">
-    <button onclick="exportPDF()">🖨️ PDF</button>
-    <button onclick="exportExcel()">📊 Excel</button>
-    <button onclick="clearAll()">🗑️ مسح الكل</button>
-  </div>
-
-  <div class="page">
-    <div class="grid" id="grid"></div>
-  </div>
-
-  <script>
-    const STORAGE_KEY = "hidden_report_data_v1";
-    let dataStore = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    const grid = document.getElementById("grid");
-
-    function saveStorage(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataStore));
-    }
-
-    function getBoxStateText(i){
-      if(dataStore[i] && dataStore[i].img){
-        return "تم حفظ صورة وبيانات هذه الخانة";
-      }
-      return "لا توجد صورة محفوظة";
-    }
-
-    function buildBoxes(){
-      let html = "";
-      for(let i=1;i<=12;i++){
-        html += `
-          <div class="box" id="box${i}">
-            <div class="num">${i}</div>
-
-            <div class="status" id="status${i}">${getBoxStateText(i)}</div>
-
-            <div class="add" onclick="openPicker(event,${i})">+</div>
-            <div class="edit" onclick="openEditor(event,${i})">✏️</div>
-
-            <div class="picker" id="picker${i}">
-              <button onclick="openFile(${i},0)">📷 كاميرا</button>
-              <button onclick="openFile(${i},1)">🖼️ استديو</button>
-            </div>
-
-            <div class="note-editor" id="editor${i}">
-              <textarea id="note${i}" placeholder="اكتب الملاحظة هنا..."></textarea>
-              <div class="note-actions">
-                <button onclick="saveNote(${i})">💾 حفظ</button>
-                <button onclick="closeEditor(${i})">إغلاق</button>
-              </div>
-            </div>
-
-            <input id="cam${i}" type="file" accept="image/*" capture="environment" onchange="loadImg(${i},this)">
-            <input id="gal${i}" type="file" accept="image/*" onchange="loadImg(${i},this)">
-          </div>
-        `;
-      }
-      grid.innerHTML = html;
-    }
-
-    buildBoxes();
-
-    function refreshStatuses(){
-      for(let i=1;i<=12;i++){
-        const el = document.getElementById("status"+i);
-        if(el){
-          el.textContent = getBoxStateText(i);
-        }
-      }
-    }
-
-    function hideAllPickers(){
-      document.querySelectorAll(".picker").forEach(p => p.style.display = "none");
-    }
-
-    function openPicker(e,i){
-      e.stopPropagation();
-      hideAllPickers();
-      document.getElementById("picker"+i).style.display = "block";
-    }
-
-    function openFile(i,n){
-      document.getElementById("picker"+i).style.display = "none";
-      if(n===0){
-        document.getElementById("cam"+i).click();
-      }else{
-        document.getElementById("gal"+i).click();
-      }
-    }
-
-    function openEditor(e,i){
-      e.stopPropagation();
-      hideAllPickers();
-      document.getElementById("editor"+i).style.display = "flex";
-      document.getElementById("note"+i).value = (dataStore[i] && dataStore[i].note) ? dataStore[i].note : "";
-    }
-
-    function closeEditor(i){
-      document.getElementById("editor"+i).style.display = "none";
-    }
-
-    function saveNote(i){
-      if(!dataStore[i]){
-        dataStore[i] = {
-          lat:"",
-          lng:"",
-          date:"",
-          img:"",
-          note:""
-        };
-      }
-      dataStore[i].note = document.getElementById("note"+i).value || "";
-      saveStorage();
-      closeEditor(i);
-      refreshStatuses();
-    }
-
-    function loadImg(i,input){
-      const file = input.files && input.files[0];
-      if(!file) return;
-
-      const now = new Date();
-      const dateText = now.toLocaleString("en-US");
-
-      function finishWithCoords(lat,lng){
-        const reader = new FileReader();
-
-        reader.onload = function(e){
-          const img = new Image();
-
-          img.onload = function(){
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth || img.width;
-            canvas.height = img.naturalHeight || img.height;
-
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-            const barHeight = Math.max(170, Math.round(canvas.height * 0.17));
-            ctx.fillStyle = "rgba(0,0,0,.82)";
-            ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
-
-            const latFont = Math.max(38, Math.round(canvas.width * 0.030));
-            const lngFont = Math.max(38, Math.round(canvas.width * 0.030));
-            const dateFont = Math.max(28, Math.round(canvas.width * 0.022));
-
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold " + latFont + "px Arial";
-            ctx.fillText("LAT: " + lat, 20, canvas.height - barHeight + 48);
-
-            ctx.font = "bold " + lngFont + "px Arial";
-            ctx.fillText("LNG: " + lng, 20, canvas.height - barHeight + 98);
-
-            ctx.font = "bold " + dateFont + "px Arial";
-            ctx.fillText(dateText, 20, canvas.height - 25);
-
-            const base64 = canvas.toDataURL("image/jpeg", 0.95);
-
-            dataStore[i] = {
-              lat: lat,
-              lng: lng,
-              date: dateText,
-              img: base64,
-              note: dataStore[i]?.note || ""
-            };
-
-            saveStorage();
-            refreshStatuses();
-          };
-
-          img.src = e.target.result;
-        };
-
-        reader.readAsDataURL(file);
-      }
-
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(
-          function(pos){
-            finishWithCoords(
-              pos.coords.latitude.toFixed(6),
-              pos.coords.longitude.toFixed(6)
-            );
-          },
-          function(){
-            finishWithCoords("N/A","N/A");
-          },
-          {
-            enableHighAccuracy:true,
-            timeout:10000,
-            maximumAge:0
-          }
-        );
-      }else{
-        finishWithCoords("N/A","N/A");
-      }
-
-      input.value = "";
-    }
-
-    async function makeTitleImage(titleText){
-      const titleDiv = document.createElement("div");
-      titleDiv.style.width = "180mm";
-      titleDiv.style.padding = "6mm";
-      titleDiv.style.margin = "0 auto";
-      titleDiv.style.fontFamily = "Tahoma";
-      titleDiv.style.fontSize = "20px";
-      titleDiv.style.fontWeight = "bold";
-      titleDiv.style.textAlign = "center";
-      titleDiv.style.color = "#111";
-      titleDiv.style.background = "linear-gradient(90deg,#f3f4f6,#e5ece8)";
-      titleDiv.style.borderBottom = "2px solid #9ca3af";
-      titleDiv.textContent = titleText;
-      document.body.appendChild(titleDiv);
-
-      const canvas = await html2canvas(titleDiv,{scale:2,backgroundColor:"#fff"});
-      const img = canvas.toDataURL("image/jpeg",0.95);
-      document.body.removeChild(titleDiv);
-      return img;
-    }
-
-    async function makeNoteImage(noteText, widthMm, heightMm){
-      const noteDiv = document.createElement("div");
-      noteDiv.style.width = widthMm + "mm";
-      noteDiv.style.height = heightMm + "mm";
-      noteDiv.style.padding = "6mm";
-      noteDiv.style.boxSizing = "border-box";
-      noteDiv.style.fontFamily = "Tahoma";
-      noteDiv.style.fontSize = "14px";
-      noteDiv.style.lineHeight = "1.7";
-      noteDiv.style.whiteSpace = "pre-wrap";
-      noteDiv.style.wordBreak = "break-word";
-      noteDiv.style.background = "linear-gradient(135deg,#f1f1f1 0%,#e6efe9 55%,#dbe7e1 100%)";
-      noteDiv.textContent = noteText || "";
-      document.body.appendChild(noteDiv);
-
-      const canvas = await html2canvas(noteDiv,{scale:2,backgroundColor:"#fff"});
-      const img = canvas.toDataURL("image/jpeg",0.95);
-      document.body.removeChild(noteDiv);
-      return img;
-    }
-
-    function getSavedRows(){
-      const rows = [];
-      for(let i=1;i<=12;i++){
-        if(dataStore[i] && dataStore[i].img){
-          rows.push({
-            index:i,
-            lat:dataStore[i].lat || "",
-            lng:dataStore[i].lng || "",
-            date:dataStore[i].date || "",
-            note:dataStore[i].note || "",
-            img:dataStore[i].img || ""
-          });
-        }
-      }
-      return rows;
-    }
-
-    async function exportPDF(){
-      const rows = getSavedRows();
-      if(!rows.length){
-        alert("لا توجد بيانات محفوظة");
-        return;
-      }
-
-      document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "none");
-      hideAllPickers();
-
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF("p","mm","a4");
-
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2,"0");
-      const mm = String(now.getMonth()+1).padStart(2,"0");
-      const yyyy = now.getFullYear();
-
-      const titleText = `تقرير الصور ليوم: ${dd} / ${mm} / ${yyyy}`;
-      const titleImg = await makeTitleImage(titleText);
-
-      function drawTitle(){
-        pdf.addImage(titleImg,"JPEG",15,10,180,20);
-      }
-
-      drawTitle();
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 15;
-      const gap = 8;
-      const imgWidth = 65;
-      const imgHeight = 55;
-      const noteX = margin + imgWidth + gap;
-      const noteWidth = pageWidth - noteX - 20;
-      let y = 35;
-
-      for(const row of rows){
-        if(y + imgHeight > 280){
-          pdf.addPage();
-          drawTitle();
-          y = 35;
-        }
-
-        pdf.roundedRect(margin,y,imgWidth,imgHeight,3,3);
-        pdf.addImage(row.img,"JPEG",margin,y,imgWidth,imgHeight);
-
-        const noteImg = await makeNoteImage(row.note, noteWidth, imgHeight);
-        pdf.roundedRect(noteX,y,noteWidth,imgHeight,3,3);
-        pdf.addImage(noteImg,"JPEG",noteX,y,noteWidth,imgHeight);
-
-        y += imgHeight + 12;
-      }
-
-      pdf.save(`تقرير_الصور_${dd}-${mm}-${yyyy}.pdf`);
-      document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
-    }
-
-    function escapeHtml(text){
-      return String(text || "")
-        .replace(/&/g,"&amp;")
-        .replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;")
-        .replace(/"/g,"&quot;")
-        .replace(/'/g,"&#039;");
-    }
-
-    function exportExcel(){
-      const rows = getSavedRows();
-      if(!rows.length){
-        alert("لا توجد بيانات محفوظة");
-        return;
-      }
-
-      let html = `
-        <html>
-        <head>
-          <meta charset="UTF-8">
-        </head>
-        <body>
-          <table border="1" style="border-collapse:collapse;font-family:Tahoma;table-layout:fixed;width:100%;">
-            <tr style="background:#d9ead3;font-weight:bold">
-              <th style="width:60px">#</th>
-              <th style="width:140px">LAT</th>
-              <th style="width:140px">LNG</th>
-              <th style="width:180px">DATE</th>
-              <th style="width:240px">NOTE</th>
-              <th style="width:180px">IMAGE</th>
-            </tr>
-      `;
-
-      rows.forEach(r=>{
-        html += `
-          <tr>
-            <td>${r.index}</td>
-            <td>${escapeHtml(r.lat)}</td>
-            <td>${escapeHtml(r.lng)}</td>
-            <td>${escapeHtml(r.date)}</td>
-            <td>${escapeHtml(r.note).replace(/\n/g,"<br>")}</td>
-            <td><img src="${r.img}" style="width:140px;height:100px;object-fit:contain"></td>
-          </tr>
-        `;
-      });
-
-      html += `
-          </table>
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob(['\ufeff' + html], {type:'application/vnd.ms-excel'});
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "report.xls";
-      document.body.appendChild(a);
-      a.click();
-
-      setTimeout(function(){
-        if(document.body.contains(a)) document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1000);
-    }
-
-    function clearAll(){
-      if(!confirm("هل تريد مسح جميع البيانات المحفوظة؟")) return;
-      dataStore = {};
-      saveStorage();
-      refreshStatuses();
-      alert("تم مسح جميع البيانات");
-    }
-
-    document.addEventListener("click", function(){
-      hideAllPickers();
-    });
-
-    refreshStatuses();
-  </script>
+<div class="topbar">
+<button onclick="exportPDF()">🖨️ PDF</button>
+<button onclick="exportExcel()">📊 Excel</button>
+<button onclick="clearAll()">🗑️ مسح</button>
+</div>
+
+<div class="page">
+<div class="grid" id="grid"></div>
+</div>
+
+<script>
+
+const STORAGE="report_data_full";
+let data=JSON.parse(localStorage.getItem(STORAGE)||"{}");
+const grid=document.getElementById("grid");
+
+/* إنشاء */
+for(let i=1;i<=12;i++){
+grid.innerHTML+=`
+<div class="box">
+<div class="num">${i}</div>
+<div class="status" id="s${i}">${data[i]?"تم الحفظ":"فارغ"}</div>
+
+<div class="add" onclick="pick(event,${i})">+</div>
+<div class="edit" onclick="edit(event,${i})">✏️</div>
+
+<div class="picker" id="p${i}">
+<button onclick="file(${i},0)">كاميرا</button>
+<button onclick="file(${i},1)">استديو</button>
+</div>
+
+<div class="note-editor" id="n${i}">
+<textarea id="t${i}"></textarea>
+<button onclick="saveNote(${i})">حفظ</button>
+</div>
+
+<input id="c${i}" type="file" accept="image/*" capture onchange="img(${i},this)">
+<input id="g${i}" type="file" accept="image/*" onchange="img(${i},this)">
+</div>`;
+}
+
+/* حفظ */
+function save(){localStorage.setItem(STORAGE,JSON.stringify(data))}
+
+/* اختيار */
+function pick(e,i){
+e.stopPropagation();
+document.querySelectorAll(".picker").forEach(p=>p.style.display="none");
+document.getElementById("p"+i).style.display="block";
+}
+function file(i,n){
+document.getElementById("p"+i).style.display="none";
+(n==0?c:g)[i].click();
+}
+
+/* ملاحظات */
+function edit(e,i){
+e.stopPropagation();
+document.getElementById("n"+i).style.display="flex";
+document.getElementById("t"+i).value=data[i]?.note||"";
+}
+function saveNote(i){
+if(!data[i])data[i]={};
+data[i].note=document.getElementById("t"+i).value;
+save();
+document.getElementById("n"+i).style.display="none";
+}
+
+/* صورة */
+function img(i,input){
+const f=input.files[0]; if(!f)return;
+
+navigator.geolocation.getCurrentPosition(p=>{
+const lat=p.coords.latitude.toFixed(6);
+const lng=p.coords.longitude.toFixed(6);
+const date=new Date().toLocaleString();
+
+const r=new FileReader();
+r.onload=e=>{
+const im=new Image();
+im.onload=()=>{
+const c=document.createElement("canvas");
+c.width=im.width; c.height=im.height;
+const x=c.getContext("2d");
+
+x.drawImage(im,0,0);
+
+/* خلفية */
+const h=180;
+x.fillStyle="rgba(0,0,0,0.8)";
+x.fillRect(0,c.height-h,c.width,h);
+
+/* نص واضح */
+x.fillStyle="#fff";
+const pad=30;
+const y=c.height-h+60;
+
+x.font="bold 44px Arial";
+x.fillText("LAT: "+lat,pad,y);
+
+x.fillText("LNG: "+lng,pad,y+50);
+
+x.font="bold 32px Arial";
+x.fillText(date,pad,y+100);
+
+data[i]={lat,lng,date,img:c.toDataURL(),note:data[i]?.note||""};
+save();
+
+document.getElementById("s"+i).innerText="تم الحفظ";
+}
+im.src=e.target.result;
+}
+r.readAsDataURL(f);
+});
+}
+
+/* PDF كامل */
+async function exportPDF(){
+const {jsPDF}=window.jspdf;
+const pdf=new jsPDF("p","mm","a4");
+
+let y=20;
+for(let i in data){
+let d=data[i];
+
+pdf.addImage(d.img,"JPEG",10,y,80,50);
+pdf.text(d.note||"",100,y+10);
+
+y+=60;
+if(y>260){
+pdf.addPage();
+y=20;
+}
+}
+
+pdf.save("report.pdf");
+}
+
+/* Excel مضبوط */
+function exportExcel(){
+let rows=[];
+
+for(let i in data){
+let d=data[i];
+rows.push(`
+<tr>
+<td>${d.lat}</td>
+<td>${d.lng}</td>
+<td>${d.date}</td>
+<td>${d.note||""}</td>
+<td><img src="${d.img}" width="120"></td>
+</tr>`);
+}
+
+if(!rows.length){alert("لا يوجد بيانات");return;}
+
+let html=`
+<html><head><meta charset="UTF-8"></head><body>
+<table border="1">
+<tr><th>LAT</th><th>LNG</th><th>DATE</th><th>NOTE</th><th>IMAGE</th></tr>
+${rows.join("")}
+</table></body></html>
+`;
+
+const blob=new Blob(['\ufeff'+html],{
+type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+});
+
+const a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="report.xlsx";
+a.click();
+}
+
+/* مسح */
+function clearAll(){
+if(confirm("مسح؟")){
+data={};
+save();
+location.reload();
+}
+}
+
+</script>
 </body>
 </html>
