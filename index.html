@@ -85,7 +85,7 @@
       color:#fff;
       padding:1mm 3mm;
       z-index:5;
-      font-size:12px;
+      font-size:11px;
       border-radius:4px;
       display:none;
     }
@@ -212,8 +212,9 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "hidden_report_history_v3";
+    const STORAGE_KEY = "hidden_report_history_v5";
 
+    // البيانات المعروضة حالياً في الشاشة (آخر سجل لكل مربع)
     let screenData = {};
     const grid = document.getElementById("grid");
 
@@ -227,14 +228,19 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
     }
 
+    function getBoxHistoryCount(boxId){
+      return getAllHistory().filter(h => h.boxId === boxId).length;
+    }
+
     function updateCounter(){
       const history = getAllHistory();
       document.getElementById("counter").textContent = "السجلات: " + history.length;
 
+      // تحديث شارات التاريخ لكل مربع
       for(let i=1; i<=12; i++){
         const badge = document.getElementById("badge"+i);
         if(badge){
-          const count = history.filter(h => h.boxId === i).length;
+          const count = getBoxHistoryCount(i);
           if(count > 0){
             badge.style.display = "block";
             badge.textContent = count + " سجل";
@@ -331,6 +337,7 @@
       }
       screenData[i].note = noteText;
 
+      // حفظ في التاريخ كسجل جديد
       if(screenData[i].img){
         const record = {
           id: Date.now(),
@@ -378,32 +385,36 @@
             const ctx = canvas.getContext("2d");
             ctx.drawImage(img, 0, 0, width, height);
 
-            const barHeight = Math.min(80, Math.round(height * 0.12));
-            ctx.fillStyle = "rgba(0,0,0,0.85)";
+            // ===== شريط معلومات محسّن =====
+            const barHeight = Math.min(100, Math.round(height * 0.15));
+            ctx.fillStyle = "rgba(0,0,0,0.88)";
             ctx.fillRect(0, height - barHeight, width, barHeight);
 
-            const fontSize = Math.max(16, Math.round(width * 0.025));
+            const fontSize = Math.max(18, Math.round(width * 0.028));
+            const smallFont = Math.max(14, Math.round(width * 0.022));
+
             ctx.fillStyle = "#fff";
+            ctx.textBaseline = "top";
+
             ctx.font = "bold " + fontSize + "px Arial";
+            ctx.fillText("LAT: " + lat, 15, height - barHeight + 10);
+            ctx.fillText("LNG: " + lng, 15, height - barHeight + 10 + fontSize + 8);
 
-            const lineHeight = fontSize + 8;
-            const startY = height - barHeight + lineHeight;
-
-            ctx.fillText("LAT: " + lat, 15, startY);
-            ctx.fillText("LNG: " + lng, 15, startY + lineHeight);
-            ctx.font = fontSize + "px Arial";
-            ctx.fillText(dateText, 15, startY + (lineHeight * 2));
+            ctx.font = "bold " + smallFont + "px Arial";
+            ctx.fillText(dateText, 15, height - barHeight + 10 + (fontSize + 8) * 2);
 
             const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
+            // حفظ في الشاشة (آخر صورة)
             screenData[i] = {
               lat: lat,
               lng: lng,
               date: dateText,
               img: base64,
-              note: ""
+              note: screenData[i]?.note || ""
             };
 
+            // حفظ في التاريخ كسجل جديد منفصل
             const record = {
               id: Date.now(),
               boxId: i,
@@ -411,7 +422,7 @@
               lng: lng,
               date: dateText,
               img: base64,
-              note: "",
+              note: screenData[i]?.note || "",
               savedAt: new Date().toLocaleString("ar-SA")
             };
             saveHistory(record);
@@ -541,7 +552,7 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
-    // ===== EXCEL مع صور داخل الخلايا =====
+    // ===== EXCEL: كل سجل = سطر منفصل =====
     function exportExcel(){
       const history = getAllHistory();
 
@@ -550,71 +561,30 @@
         return;
       }
 
-      // إنشاء مصفوفة بيانات
-      const data = [
-        ["م", "رقم المربع", "LAT", "LNG", "التاريخ", "الملاحظات", "وقت الحفظ"]
-      ];
+      const rows = history.map((item, idx) => ({
+        "مسلسل": idx + 1,
+        "رقم المربع": item.boxId,
+        "LAT": item.lat || "",
+        "LNG": item.lng || "",
+        "التاريخ": item.date || "",
+        "الملاحظات": item.note || "",
+        "وقت الحفظ": item.savedAt || ""
+      }));
 
-      history.forEach((item, idx) => {
-        data.push([
-          idx + 1,
-          item.boxId,
-          item.lat || "",
-          item.lng || "",
-          item.date || "",
-          item.note || "",
-          item.savedAt || ""
-        ]);
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-
-      // إضافة الصور كصور مدمجة في الورقة
-      const images = [];
-      history.forEach((item, idx) => {
-        if(item.img){
-          // استخراج Base64 بدون prefix
-          const base64 = item.img.replace(/^data:image\/\w+;base64,/, "");
-          const imageId = XLSX.utils.sheet_add_aoa(ws, [[""]], {origin: "H" + (idx + 2)});
-
-          images.push({
-            name: "image" + idx + ".jpg",
-            data: base64,
-            opts: {base64: true},
-            position: {
-              type: "twoCellAnchor",
-              from: {col: 7, row: idx + 1},  // عمود H
-              to: {col: 8, row: idx + 2}
-            }
-          });
-        }
-      });
+      const ws = XLSX.utils.json_to_sheet(rows);
 
       ws['!cols'] = [
-        {wch: 6},
+        {wch: 10},
         {wch: 12},
         {wch: 15},
         {wch: 15},
         {wch: 25},
-        {wch: 40},
-        {wch: 25},
-        {wch: 20}  // عمود الصور
+        {wch: 50},
+        {wch: 25}
       ];
-
-      // ارتفاع الصفوف لاستيعاب الصور
-      ws['!rows'] = [];
-      ws['!rows'][0] = {hpt: 20};  // صف العناوين
-      for(let i=0; i<history.length; i++){
-        ws['!rows'][i+1] = {hpt: 80};  // ارتفاع 80 نقطة لكل صف
-      }
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "تقرير الصور");
-
-      // إضافة الصور للملف
-      if(images.length > 0){
-        wb.Sheets["تقرير الصور"]["!images"] = images;
-      }
 
       const now = new Date();
       const dd = String(now.getDate()).padStart(2,"0");
