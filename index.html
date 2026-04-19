@@ -493,27 +493,31 @@
       document.querySelectorAll(".add,.edit").forEach(el => el.style.display = "");
     }
 
-    // ===== FIXED EXCEL EXPORT USING SheetJS =====
+    // ===== EXPORT ALL STORED DATA FROM LOCALSTORAGE =====
     function exportExcel(){
-      const rows = getSavedRows();
+      // استرجاع مباشر من localStorage - يجيب كل البيانات المخزنة
+      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+
+      const rows = [];
+      for(let i=1; i<=12; i++){
+        if(allData[i] && allData[i].img){
+          rows.push({
+            "رقم": i,
+            "LAT": allData[i].lat || "",
+            "LNG": allData[i].lng || "",
+            "التاريخ": allData[i].date || "",
+            "الملاحظات": allData[i].note || ""
+          });
+        }
+      }
+
       if(!rows.length){
         alert("لا توجد بيانات محفوظة");
         return;
       }
 
-      // Prepare data for Excel
-      const excelData = rows.map(r => ({
-        "رقم": r.index,
-        "LAT": r.lat,
-        "LNG": r.lng,
-        "التاريخ": r.date,
-        "الملاحظات": r.note
-      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
 
-      // Create worksheet
-      const ws = XLSX.utils.json_to_sheet(excelData);
-
-      // Set column widths
       ws['!cols'] = [
         {wch: 8},   // رقم
         {wch: 15},  // LAT
@@ -522,19 +526,15 @@
         {wch: 50}   // الملاحظات
       ];
 
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "تقرير الصور");
 
-      // Generate filename with date
       const now = new Date();
       const dd = String(now.getDate()).padStart(2,"0");
       const mm = String(now.getMonth()+1).padStart(2,"0");
       const yyyy = now.getFullYear();
-      const filename = `تقرير_الصور_${dd}-${mm}-${yyyy}.xlsx`;
 
-      // Export to file
-      XLSX.writeFile(wb, filename);
+      XLSX.writeFile(wb, `تقرير_الصور_${dd}-${mm}-${yyyy}.xlsx`);
     }
 
     function clearAll(){
