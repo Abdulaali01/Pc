@@ -133,7 +133,7 @@ reader.readAsDataURL(file);
 });
 }
 
-/* بقية الدوال */
+/* باقي الدوال */
 function openPicker(e,i){e.stopPropagation();document.getElementById("picker"+i).style.display="block";}
 function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();document.getElementById("picker"+i).style.display="none";}
 function openEditor(e,i){e.stopPropagation();document.getElementById("editor"+i).style.display="flex";}
@@ -142,6 +142,9 @@ function saveNote(i){notes[i]=document.getElementById("note"+i).value;document.g
 /* PDF */
 async function printPDF(){
 if(!selected.length){alert("اختر صور");return;}
+
+/* 🔴 إخفاء الأزرار */
+document.querySelectorAll(".add,.edit").forEach(el=>el.style.display="none");
 
 const {jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
@@ -168,9 +171,13 @@ y+=70;
 }
 
 pdf.save("report.pdf");
+
+/* 🔴 رجوع الأزرار */
+document.querySelectorAll(".add,.edit").forEach(el=>el.style.display="");
+
 }
 
-/* عنوان كصورة */
+/* عنوان */
 function createTitle(){
 const d=document.createElement("div");
 d.style.width="190mm";
@@ -181,7 +188,7 @@ document.body.appendChild(d);
 return d;
 }
 
-/* ملاحظة كصورة */
+/* ملاحظة */
 function createNote(txt){
 const d=document.createElement("div");
 d.style.width="100mm";
