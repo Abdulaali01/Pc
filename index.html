@@ -212,35 +212,49 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "hidden_report_history_v5";
+    const STORAGE_KEY = "hidden_report_box_history_v6";
 
-    // البيانات المعروضة حالياً في الشاشة (آخر سجل لكل مربع)
-    let screenData = {};
+    // كل مربع يخزن مصفوفة من السجلات
+    let screenData = {};  // آخر سجل لكل مربع (للعرض)
     const grid = document.getElementById("grid");
 
-    function getAllHistory(){
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    function getStoredData(){
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     }
 
-    function saveHistory(record){
-      const history = getAllHistory();
-      history.push(record);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    function saveBoxRecord(boxId, record){
+      const stored = getStoredData();
+      if(!stored[boxId]){
+        stored[boxId] = [];
+      }
+      stored[boxId].push(record);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
     }
 
-    function getBoxHistoryCount(boxId){
-      return getAllHistory().filter(h => h.boxId === boxId).length;
+    function getBoxRecords(boxId){
+      const stored = getStoredData();
+      return stored[boxId] || [];
+    }
+
+    function getAllRecords(){
+      const stored = getStoredData();
+      let all = [];
+      for(let i=1; i<=12; i++){
+        if(stored[i]){
+          all = all.concat(stored[i]);
+        }
+      }
+      return all;
     }
 
     function updateCounter(){
-      const history = getAllHistory();
-      document.getElementById("counter").textContent = "السجلات: " + history.length;
+      const all = getAllRecords();
+      document.getElementById("counter").textContent = "السجلات: " + all.length;
 
-      // تحديث شارات التاريخ لكل مربع
       for(let i=1; i<=12; i++){
         const badge = document.getElementById("badge"+i);
         if(badge){
-          const count = getBoxHistoryCount(i);
+          const count = getBoxRecords(i).length;
           if(count > 0){
             badge.style.display = "block";
             badge.textContent = count + " سجل";
@@ -349,7 +363,7 @@
           note: noteText,
           savedAt: new Date().toLocaleString("ar-SA")
         };
-        saveHistory(record);
+        saveBoxRecord(i, record);
       }
 
       closeEditor(i);
@@ -385,7 +399,6 @@
             const ctx = canvas.getContext("2d");
             ctx.drawImage(img, 0, 0, width, height);
 
-            // ===== شريط معلومات محسّن =====
             const barHeight = Math.min(100, Math.round(height * 0.15));
             ctx.fillStyle = "rgba(0,0,0,0.88)";
             ctx.fillRect(0, height - barHeight, width, barHeight);
@@ -405,7 +418,7 @@
 
             const base64 = canvas.toDataURL("image/jpeg", 0.92);
 
-            // حفظ في الشاشة (آخر صورة)
+            // تحديث الشاشة
             screenData[i] = {
               lat: lat,
               lng: lng,
@@ -414,7 +427,7 @@
               note: screenData[i]?.note || ""
             };
 
-            // حفظ في التاريخ كسجل جديد منفصل
+            // حفظ في التاريخ كسجل جديد
             const record = {
               id: Date.now(),
               boxId: i,
@@ -425,7 +438,7 @@
               note: screenData[i]?.note || "",
               savedAt: new Date().toLocaleString("ar-SA")
             };
-            saveHistory(record);
+            saveBoxRecord(i, record);
 
             refreshStatuses();
             updateCounter();
@@ -495,9 +508,9 @@
     }
 
     async function exportPDF(){
-      const history = getAllHistory();
+      const allRecords = getAllRecords();
 
-      if(!history.length){
+      if(!allRecords.length){
         alert("لا توجد بيانات محفوظة");
         return;
       }
@@ -531,7 +544,7 @@
       const noteWidth = pageWidth - noteX - 20;
       let y = 35;
 
-      for(const row of history){
+      for(const row of allRecords){
         if(y + imgHeight > 280){
           pdf.addPage();
           drawTitle();
@@ -554,14 +567,14 @@
 
     // ===== EXCEL: كل سجل = سطر منفصل =====
     function exportExcel(){
-      const history = getAllHistory();
+      const allRecords = getAllRecords();
 
-      if(!history.length){
+      if(!allRecords.length){
         alert("لا توجد بيانات محفوظة");
         return;
       }
 
-      const rows = history.map((item, idx) => ({
+      const rows = allRecords.map((item, idx) => ({
         "مسلسل": idx + 1,
         "رقم المربع": item.boxId,
         "LAT": item.lat || "",
